@@ -37,6 +37,7 @@ func testGitHubBackend(payloads map[string][]string) *httptest.Server {
 		"/user":        {""},
 		"/user/emails": {""},
 		"/user/orgs":   {"page=1&per_page=100", "page=2&per_page=100", "page=3&per_page=100"},
+		"/user/teams":  {"page=1&per_page=100", "page=2&per_page=100", "page=3&per_page=100"},
 	}
 
 	return httptest.NewServer(http.HandlerFunc(
@@ -367,8 +368,50 @@ func TestGitHubProvider_getEmailWithUsernameAndNotBelongToOrg(t *testing.T) {
 
 	bURL, _ := url.Parse(b.URL)
 	p := testGitHubProvider(bURL.Host)
-	p.SetOrgTeam("not_belong_to", "")
+	p.SetOrgTeamGroups("not_belong_to", "", []string{})
 	p.SetUsers([]string{"mbland"})
+
+	session := CreateAuthorizedSession()
+	err := p.getEmail(context.Background(), session)
+	assert.NoError(t, err)
+	assert.Equal(t, "michael.bland@gsa.gov", session.Email)
+}
+
+func TestGitHubProvider_getEmailWithUsernameAndNotBelongToGroup(t *testing.T) {
+	b := testGitHubBackend(map[string][]string{
+		"/user":        {`{"email": "michael.bland@gsa.gov", "login": "mbland"}`},
+		"/user/emails": {`[ {"email": "michael.bland@gsa.gov", "verified": true, "primary": true} ]`},
+		"/user/teams": {
+			`[ {"name":"testteam", "slug":"testteam", "organization":{"login": "testorg"}} ]`,
+      `[ ]`,
+		},
+	})
+	defer b.Close()
+
+	bURL, _ := url.Parse(b.URL)
+	p := testGitHubProvider(bURL.Host)
+	p.SetOrgTeamGroups("", "", []string{"testorg:nottestteam"})
+
+	session := CreateAuthorizedSession()
+	err := p.getEmail(context.Background(), session)
+	assert.NoError(t, err)
+	assert.Equal(t, "", session.Email)
+}
+
+func TestGitHubProvider_getEmailWithUsernameAndBelongToGroup(t *testing.T) {
+	b := testGitHubBackend(map[string][]string{
+		"/user":        {`{"email": "michael.bland@gsa.gov", "login": "mbland"}`},
+		"/user/emails": {`[ {"email": "michael.bland@gsa.gov", "verified": true, "primary": true} ]`},
+		"/user/teams": {
+			`[ {"name":"testteam", "slug":"testteam", "organization":{"login": "testorg"}} ]`,
+      `[ ]`,
+		},
+	})
+	defer b.Close()
+
+	bURL, _ := url.Parse(b.URL)
+	p := testGitHubProvider(bURL.Host)
+	p.SetOrgTeamGroups("", "", []string{"testorg:testteam"})
 
 	session := CreateAuthorizedSession()
 	err := p.getEmail(context.Background(), session)

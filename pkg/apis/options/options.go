@@ -44,6 +44,7 @@ type Options struct {
 	WhitelistDomains         []string `flag:"whitelist-domain" cfg:"whitelist_domains"`
 	GitHubOrg                string   `flag:"github-org" cfg:"github_org"`
 	GitHubTeam               string   `flag:"github-team" cfg:"github_team"`
+	GitHubGroups             []string `flag:"github-group" cfg:"github_group"`
 	GitHubRepo               string   `flag:"github-repo" cfg:"github_repo"`
 	GitHubToken              string   `flag:"github-token" cfg:"github_token"`
 	GitHubUsers              []string `flag:"github-user" cfg:"github_users"`
@@ -182,8 +183,9 @@ func NewFlagSet() *pflag.FlagSet {
 	flagSet.String("azure-tenant", "common", "go to a tenant-specific or common (tenant-independent) endpoint.")
 	flagSet.String("bitbucket-team", "", "restrict logins to members of this team")
 	flagSet.String("bitbucket-repository", "", "restrict logins to user with access to this repository")
-	flagSet.String("github-org", "", "restrict logins to members of this organisation")
-	flagSet.String("github-team", "", "restrict logins to members of this team")
+	flagSet.String("github-org", "", "(DEPRECATED for --github-group) restrict logins to members of this organisation")
+	flagSet.String("github-team", "", "(DEPRECATED for --github-group) restrict logins to members of this team")
+	flagSet.StringSlice("github-group", []string{}, "restrict logins to members of this group (eg: someorg:someteam)")
 	flagSet.String("github-repo", "", "restrict logins to collaborators of this repository")
 	flagSet.String("github-token", "", "the token to use when verifying repository collaborators (must have push access to the repository)")
 	flagSet.StringSlice("github-user", []string{}, "allow users with these usernames to login even if they do not belong to the specified org and team or collaborators (may be given multiple times)")

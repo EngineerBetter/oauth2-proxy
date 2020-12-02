@@ -19,11 +19,12 @@ import (
 // GitHubProvider represents an GitHub based Identity Provider
 type GitHubProvider struct {
 	*ProviderData
-	Org   string
-	Team  string
-	Repo  string
-	Token string
-	Users []string
+	Org    string
+	Team   string
+	Groups []string
+	Repo   string
+	Token  string
+	Users  []string
 }
 
 var _ Provider = (*GitHubProvider)(nil)
@@ -83,10 +84,11 @@ func makeGitHubHeader(accessToken string) http.Header {
 }
 
 // SetOrgTeam adds GitHub org reading parameters to the OAuth2 scope
-func (p *GitHubProvider) SetOrgTeam(org, team string) {
+func (p *GitHubProvider) SetOrgTeamGroups(org, team string, groups []string) {
 	p.Org = org
 	p.Team = team
-	if org != "" || team != "" {
+	p.Groups = groups
+	if org != "" || team != "" || len(groups) != 0 {
 		p.Scope += " read:org"
 	}
 }
@@ -172,25 +174,18 @@ func (p *GitHubProvider) hasOrg(ctx context.Context, accessToken string) (bool, 
 	return false, nil
 }
 
-func (p *GitHubProvider) hasOrgAndTeam(ctx context.Context, accessToken string) (bool, error) {
+type Team struct {
+	Name string `json:"name"`
+	Slug string `json:"slug"`
+	Org  struct {
+		Login string `json:"login"`
+	} `json:"organization"`
+}
+
+func (p *GitHubProvider) getTeamsForUser(ctx context.Context, accessToken string) ([]Team, error) {
 	// https://developer.github.com/v3/orgs/teams/#list-user-teams
-
-	var teams []struct {
-		Name string `json:"name"`
-		Slug string `json:"slug"`
-		Org  struct {
-			Login string `json:"login"`
-		} `json:"organization"`
-	}
-
-	type teamsPage []struct {
-		Name string `json:"name"`
-		Slug string `json:"slug"`
-		Org  struct {
-			Login string `json:"login"`
-		} `json:"organization"`
-	}
-
+	var teamsPage []Team
+	teams := []Team{}
 	pn := 1
 	last := 0
 	for {
@@ -214,7 +209,7 @@ func (p *GitHubProvider) hasOrgAndTeam(ctx context.Context, accessToken string) 
 			WithHeaders(makeGitHubHeader(accessToken)).
 			Do()
 		if result.Error() != nil {
-			return false, result.Error()
+			return []Team{}, result.Error()
 		}
 
 		if last == 0 {
@@ -240,15 +235,14 @@ func (p *GitHubProvider) hasOrgAndTeam(ctx context.Context, accessToken string) 
 			}
 		}
 
-		var tp teamsPage
-		if err := result.UnmarshalInto(&tp); err != nil {
-			return false, err
+		if err := result.UnmarshalInto(&teamsPage); err != nil {
+			return []Team{}, err
 		}
-		if len(tp) == 0 {
+		if len(teamsPage) == 0 {
 			break
 		}
 
-		teams = append(teams, tp...)
+		teams = append(teams, teamsPage...)
 
 		if pn == last {
 			break
@@ -258,6 +252,14 @@ func (p *GitHubProvider) hasOrgAndTeam(ctx context.Context, accessToken string) 
 		}
 
 		pn++
+	}
+	return teams, nil
+}
+
+func (p *GitHubProvider) hasOrgAndTeam(ctx context.Context, accessToken string) (bool, error) {
+	teams, err := p.getTeamsForUser(ctx, accessToken)
+	if err != nil {
+		return false, err
 	}
 
 	var hasOrg bool
@@ -286,6 +288,28 @@ func (p *GitHubProvider) hasOrgAndTeam(ctx context.Context, accessToken string) 
 		}
 		logger.Printf("Missing Organization:%q in %#v", p.Org, allOrgs)
 	}
+	return false, nil
+}
+
+func (p *GitHubProvider) hasGroup(ctx context.Context, accessToken string) (bool, error) {
+	teams, err := p.getTeamsForUser(ctx, accessToken)
+	if err != nil {
+		return false, err
+	}
+
+	presentGroups := []string{}
+	for _, team := range teams {
+		for _, group := range p.Groups {
+			//TODO add globbing/wildcarding
+			if fmt.Sprintf("%s:%s", strings.ToLower(team.Org.Login), strings.ToLower(team.Name)) == group {
+				logger.Printf("Found Github group: %s:%s", team.Org.Login, team.Name)
+				return true, nil
+			}
+		}
+		presentGroups = append(presentGroups, fmt.Sprintf("%s:%s", team.Org.Login, team.Name))
+	}
+
+	logger.Printf("No groups:%s matched allowed groups:%s", presentGroups, p.Groups)
 	return false, nil
 }
 
@@ -402,7 +426,11 @@ func (p *GitHubProvider) getEmail(ctx context.Context, s *sessions.SessionState)
 	}
 	// If a user is verified by username options, skip the following restrictions
 	if !verifiedUser {
-		if p.Org != "" {
+		if len(p.Groups) != 0 {
+			if ok, err := p.hasGroup(ctx, s.AccessToken); err != nil || !ok {
+				return err
+			}
+		} else if p.Org != "" {
 			if p.Team != "" {
 				if ok, err := p.hasOrgAndTeam(ctx, s.AccessToken); err != nil || !ok {
 					return err
