@@ -134,6 +134,27 @@ func TestGoogleGroupInvalidFile(t *testing.T) {
 	assert.Equal(t, expected, err.Error())
 }
 
+func TestGitHubValidGroup(t *testing.T) {
+	o := testOptions()
+	o.ProviderType = "github"
+	o.GitHubGroups = []string{"org:team"}
+	err := Validate(o)
+	assert.Equal(t, nil, err)
+}
+
+func TestGitHubInvalidGroup(t *testing.T) {
+	o := testOptions()
+	o.ProviderType = "github"
+	o.GitHubGroups = []string{"orgwithoutteam"}
+	err := Validate(o)
+	assert.NotEqual(t, nil, err)
+
+	expected := errorMsg([]string{
+		"invalid github group: orgwithoutteam",
+	})
+	assert.Equal(t, expected, err.Error())
+}
+
 func TestInitializedOptions(t *testing.T) {
 	o := testOptions()
 	assert.Equal(t, nil, Validate(o))

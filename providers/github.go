@@ -300,11 +300,16 @@ func (p *GitHubProvider) hasGroup(ctx context.Context, accessToken string) (bool
 	presentGroups := []string{}
 	for _, team := range teams {
 		for _, group := range p.Groups {
-			//TODO add globbing/wildcarding
-			if fmt.Sprintf("%s:%s", strings.ToLower(team.Org.Login), strings.ToLower(team.Name)) == group {
-				logger.Printf("Found Github group: %s:%s", team.Org.Login, team.Name)
-				return true, nil
-			}
+      orgAndTeam := strings.SplitN(group, ":", 2)
+      if strings.ToLower(team.Org.Login) == orgAndTeam[0] {
+        if orgAndTeam[1] == "*" {
+          logger.Printf("Found Github org wildcard: %s", orgAndTeam[0])
+          return true, nil
+        } else if strings.ToLower(team.Name) == strings.ToLower(orgAndTeam[1]) {
+          logger.Printf("Found Github group: %s:%s", team.Org.Login, team.Name)
+          return true, nil
+        }
+      }
 		}
 		presentGroups = append(presentGroups, fmt.Sprintf("%s:%s", team.Org.Login, team.Name))
 	}

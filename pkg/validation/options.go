@@ -249,6 +249,13 @@ func parseProviderInfo(o *options.Options, msgs []string) []string {
 	case *providers.AzureProvider:
 		p.Configure(o.AzureTenant)
 	case *providers.GitHubProvider:
+		if len(o.GitHubGroups) > 0 {
+			for _, group := range o.GitHubGroups {
+				if len(strings.SplitN(group, ":", 2)) != 2 {
+					msgs = append(msgs, fmt.Sprintf("invalid github group: %s", group))
+				}
+			}
+		}
 		p.SetOrgTeamGroups(o.GitHubOrg, o.GitHubTeam, o.GitHubGroups)
 		p.SetRepo(o.GitHubRepo, o.GitHubToken)
 		p.SetUsers(o.GitHubUsers)

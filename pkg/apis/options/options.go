@@ -185,7 +185,7 @@ func NewFlagSet() *pflag.FlagSet {
 	flagSet.String("bitbucket-repository", "", "restrict logins to user with access to this repository")
 	flagSet.String("github-org", "", "(DEPRECATED for --github-group) restrict logins to members of this organisation")
 	flagSet.String("github-team", "", "(DEPRECATED for --github-group) restrict logins to members of this team")
-	flagSet.StringSlice("github-group", []string{}, "restrict logins to members of this group (eg: someorg:someteam)")
+	flagSet.StringSlice("github-group", []string{}, "restrict logins to members of this group. Supports wildcard for teams. (eg: someorg:someteam or someorg:*)")
 	flagSet.String("github-repo", "", "restrict logins to collaborators of this repository")
 	flagSet.String("github-token", "", "the token to use when verifying repository collaborators (must have push access to the repository)")
 	flagSet.StringSlice("github-user", []string{}, "allow users with these usernames to login even if they do not belong to the specified org and team or collaborators (may be given multiple times)")
