@@ -301,7 +301,7 @@ func (p *GitHubProvider) hasGroup(ctx context.Context, accessToken string) (bool
 	for _, team := range teams {
 		for _, group := range p.Groups {
       orgAndTeam := strings.SplitN(group, ":", 2)
-      if strings.ToLower(team.Org.Login) == orgAndTeam[0] {
+      if strings.ToLower(team.Org.Login) == strings.ToLower(orgAndTeam[0]) {
         if orgAndTeam[1] == "*" {
           logger.Printf("Found Github org wildcard: %s", orgAndTeam[0])
           return true, nil

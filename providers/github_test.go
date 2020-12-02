@@ -419,6 +419,27 @@ func TestGitHubProvider_getEmailWithUsernameAndBelongToGroup(t *testing.T) {
 	assert.Equal(t, "michael.bland@gsa.gov", session.Email)
 }
 
+func TestGitHubProvider_getEmailWithUsernameAndBelongToGroupMultiple(t *testing.T) {
+	b := testGitHubBackend(map[string][]string{
+		"/user":        {`{"email": "michael.bland@gsa.gov", "login": "mbland"}`},
+		"/user/emails": {`[ {"email": "michael.bland@gsa.gov", "verified": true, "primary": true} ]`},
+		"/user/teams": {
+			`[ {"name":"testteam", "slug":"testteam", "organization":{"login": "testorg"}} ]`,
+			`[ {"name":"otherteam", "slug":"testteam", "organization":{"login": "otherorg"}} ]`,
+		},
+	})
+	defer b.Close()
+
+	bURL, _ := url.Parse(b.URL)
+	p := testGitHubProvider(bURL.Host)
+  p.SetOrgTeamGroups("", "", []string{"testorg:nottestteam", "Testorg:Testteam"})
+
+	session := CreateAuthorizedSession()
+	err := p.getEmail(context.Background(), session)
+	assert.NoError(t, err)
+	assert.Equal(t, "michael.bland@gsa.gov", session.Email)
+}
+
 func TestGitHubProvider_getEmailWithUsernameAndBelongToWildcardGroup(t *testing.T) {
 	b := testGitHubBackend(map[string][]string{
 		"/user":        {`{"email": "michael.bland@gsa.gov", "login": "mbland"}`},
